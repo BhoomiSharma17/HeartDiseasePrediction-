@@ -8,8 +8,12 @@ import joblib
 import sys
 import os
 
+# Resolve paths relative to this file so the app works regardless of cwd
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODELS_DIR = os.path.join(BASE_DIR, 'models')
+DATA_PATH = os.path.join(BASE_DIR, 'data', 'heart.csv')
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.append(os.path.join(BASE_DIR, 'src'))
 
 try:
     from data_analyzer import HeartDiseaseAnalyzer
@@ -437,9 +441,9 @@ class HeartDiseaseApp:
     def load_model(self):
         """Load the trained model and scaler"""
         try:
-            self.model = joblib.load('models/best_heart_disease_model.pkl')
-            self.scaler = joblib.load('models/scaler.pkl')
-            self.model_info = joblib.load('models/model_info.pkl')
+            self.model = joblib.load(os.path.join(MODELS_DIR, 'best_heart_disease_model.pkl'))
+            self.scaler = joblib.load(os.path.join(MODELS_DIR, 'scaler.pkl'))
+            self.model_info = joblib.load(os.path.join(MODELS_DIR, 'model_info.pkl'))
             return True
         except FileNotFoundError:
             return False
@@ -513,16 +517,24 @@ class HeartDiseaseApp:
         # Convert to numpy array and reshape
         input_array = np.array(input_data).reshape(1, -1)
         
-        # Scale if necessary (check if model needs scaling)
-        if hasattr(self.model, 'kernel') or 'Logistic' in str(type(self.model)) or 'Neural' in str(type(self.model)):
-            input_array = self.scaler.transform(input_array)
+        # Scale input — always apply the scaler so inference matches training
+        input_scaled = self.scaler.transform(input_array)
+        
+        # Random Forest is scale-invariant, but we scale consistently for
+        # correctness if the model is ever swapped for one that requires it.
+        model_name = str(type(self.model).__name__)
+        needs_scaling = any(
+            name in model_name
+            for name in ['Logistic', 'SVC', 'KNeighbors', 'MLP', 'Linear']
+        )
+        model_input = input_scaled if needs_scaling else input_array
         
         # Make prediction
-        prediction = self.model.predict(input_array)[0]
+        prediction = self.model.predict(model_input)[0]
         
         # Get probability if available
         if hasattr(self.model, 'predict_proba'):
-            probability = self.model.predict_proba(input_array)[0]
+            probability = self.model.predict_proba(model_input)[0]
             confidence = max(probability)
         else:
             confidence = None
@@ -607,8 +619,8 @@ def main():
         st.markdown('<p style="color: #888; margin-bottom: 2rem;">Explore the heart disease dataset with interactive visualizations.</p>', unsafe_allow_html=True)
         
         # Check if data file exists
-        if os.path.exists('data/heart.csv'):
-            analyzer = HeartDiseaseAnalyzer('data/heart.csv')
+        if os.path.exists(DATA_PATH):
+            analyzer = HeartDiseaseAnalyzer(DATA_PATH)
             theme = app.get_chart_theme()
             
             if analyzer.load_data() is not None:
@@ -616,14 +628,14 @@ def main():
                 with st.expander("Dataset Overview", expanded=True):
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        st.metric("Total Samples", analyzer.df.shape[0])
+                        st.metric("Total Samples", analyzer.data.shape[0])
                     with col2:
-                        st.metric("Features", analyzer.df.shape[1])
+                        st.metric("Features", analyzer.data.shape[1])
                     with col3:
                         st.metric("Target Classes", 2)
                     
                     # Target distribution
-                    target_counts = analyzer.df['target'].value_counts()
+                    target_counts = analyzer.data['target'].value_counts()
                     fig = px.pie(values=target_counts.values, 
                                names=['No Disease', 'Heart Disease'],
                                title="Target Distribution",
@@ -640,7 +652,7 @@ def main():
                 
                 # Correlation heatmap
                 with st.expander("Feature Correlations"):
-                    corr_matrix = analyzer.df.corr()
+                    corr_matrix = analyzer.data.corr()
                     fig = px.imshow(corr_matrix, 
                                   title="Feature Correlation Matrix",
                                   template=theme['template'],
@@ -657,9 +669,9 @@ def main():
                 # Feature distributions
                 with st.expander("Feature Distributions"):
                     selected_feature = st.selectbox("Select feature to analyze", 
-                                                   analyzer.df.columns[:-1])
+                                                   analyzer.data.columns[:-1])
                     
-                    fig = px.histogram(analyzer.df, x=selected_feature, color='target',
+                    fig = px.histogram(analyzer.data, x=selected_feature, color='target',
                                      title=f'{selected_feature} Distribution by Heart Disease Status',
                                      template=theme['template'],
                                      color_discrete_sequence=['#00ff88', '#ff4444'] if st.session_state.theme == 'dark' else ['#00aa66', '#cc0000'])

@@ -32,9 +32,9 @@ class HeartDiseaseModelTrainer:
         self.X_train_scaled = None
         self.X_test_scaled = None
         try:
-          self.load_and_prepare_data()
-        except:
-          pass
+            self.load_and_prepare_data()
+        except Exception as e:
+            print(f"Warning: Could not load data during initialization: {e}")
           
     def load_and_prepare_data(self):
         """Load and prepare data for training"""
@@ -154,7 +154,7 @@ class HeartDiseaseModelTrainer:
             print("Please train the model first!")
             return
         
-        feature_names = self.df.drop('target', axis=1).columns
+        feature_names = self.data.drop('target', axis=1).columns
         importances = self.model.feature_importances_
         indices = np.argsort(importances)[::-1]
         

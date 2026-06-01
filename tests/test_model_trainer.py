@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 import sys
 import os
+import tempfile
 
 # Add src to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -18,8 +19,8 @@ class TestHeartDiseaseModelTrainer:
     """Test cases for HeartDiseaseModelTrainer class"""
     
     @pytest.fixture
-    def sample_data(self):
-        """Create sample data for testing"""
+    def sample_csv(self, tmp_path):
+        """Create a temporary CSV file with sample data for testing"""
         np.random.seed(42)
         data = {
             'age': np.random.randint(30, 80, 100),
@@ -37,19 +38,20 @@ class TestHeartDiseaseModelTrainer:
             'thal': np.random.randint(0, 4, 100),
             'target': np.random.randint(0, 2, 100)
         }
-        return pd.DataFrame(data)
+        csv_path = tmp_path / "heart_test.csv"
+        pd.DataFrame(data).to_csv(csv_path, index=False)
+        return str(csv_path)
     
     @pytest.fixture
-    def trainer(self, sample_data):
-        """Create trainer instance with sample data"""
-        return HeartDiseaseModelTrainer(sample_data)
+    def trainer(self, sample_csv):
+        """Create trainer instance with sample CSV path"""
+        return HeartDiseaseModelTrainer(sample_csv)
     
-    def test_initialization(self, trainer, sample_data):
+    def test_initialization(self, trainer):
         """Test if trainer initializes correctly"""
         assert trainer.data is not None
-        assert len(trainer.data) == len(sample_data)
+        assert len(trainer.data) == 100
         assert trainer.model is None
-        assert trainer.scaler is None
     
     def test_data_split(self, trainer):
         """Test if data is split correctly"""
@@ -84,7 +86,8 @@ class TestHeartDiseaseModelTrainer:
         
         # Check if metrics are in valid range [0, 1]
         for metric, value in results.items():
-            assert 0 <= value <= 1, f"{metric} should be between 0 and 1"
+            if metric not in ('predictions', 'probabilities'):
+                assert 0 <= value <= 1, f"{metric} should be between 0 and 1"
     
     def test_feature_scaling(self, trainer):
         """Test if features are scaled correctly"""

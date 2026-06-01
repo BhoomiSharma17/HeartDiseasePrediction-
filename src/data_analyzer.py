@@ -36,9 +36,9 @@ class HeartDiseaseAnalyzer:
             'target': 'Heart disease presence (1 = disease; 0 = no disease)'
         }
         try:
-          self.load_data()
-        except:
-          pass
+            self.load_data()
+        except Exception as e:
+            print(f"Warning: Could not load data during initialization: {e}")
 
     
     def display_basic_info(self):

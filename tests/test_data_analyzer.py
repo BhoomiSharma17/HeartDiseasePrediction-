@@ -17,8 +17,8 @@ class TestHeartDiseaseAnalyzer:
     """Test cases for HeartDiseaseAnalyzer class"""
     
     @pytest.fixture
-    def sample_data(self):
-        """Create sample data for testing"""
+    def sample_csv(self, tmp_path):
+        """Create a temporary CSV file with sample data for testing"""
         np.random.seed(42)
         data = {
             'age': np.random.randint(30, 80, 100),
@@ -36,17 +36,19 @@ class TestHeartDiseaseAnalyzer:
             'thal': np.random.randint(0, 4, 100),
             'target': np.random.randint(0, 2, 100)
         }
-        return pd.DataFrame(data)
+        csv_path = tmp_path / "heart_test.csv"
+        pd.DataFrame(data).to_csv(csv_path, index=False)
+        return str(csv_path)
     
     @pytest.fixture
-    def analyzer(self, sample_data):
-        """Create analyzer instance with sample data"""
-        return HeartDiseaseAnalyzer(sample_data)
+    def analyzer(self, sample_csv):
+        """Create analyzer instance with sample CSV path"""
+        return HeartDiseaseAnalyzer(sample_csv)
     
-    def test_initialization(self, analyzer, sample_data):
+    def test_initialization(self, analyzer):
         """Test if analyzer initializes correctly"""
         assert analyzer.data is not None
-        assert len(analyzer.data) == len(sample_data)
+        assert len(analyzer.data) == 100
     
     def test_basic_info(self, analyzer, capsys):
         """Test if basic info is displayed"""
